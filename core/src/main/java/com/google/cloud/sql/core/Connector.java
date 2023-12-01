@@ -19,13 +19,16 @@ package com.google.cloud.sql.core;
 import com.google.cloud.sql.ConnectorConfig;
 import com.google.cloud.sql.CredentialFactory;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListenableScheduledFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.security.KeyPair;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLSocket;
 import jnr.unixsocket.UnixSocketAddress;
 import jnr.unixsocket.UnixSocketChannel;
@@ -33,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 class Connector {
+
   private static final Logger logger = LoggerFactory.getLogger(Connector.class);
 
   private final DefaultConnectionInfoRepository adminApi;
@@ -45,6 +49,8 @@ class Connector {
       new ConcurrentHashMap<>();
   private final int serverProxyPort;
   private final ConnectorConfig config;
+  private final ConcurrentHashMap<Socket, Boolean> openSockets;
+  private final ListenableScheduledFuture<?> closer;
 
   Connector(
       ConnectorConfig config,
@@ -64,6 +70,23 @@ class Connector {
     this.localKeyPair = localKeyPair;
     this.minRefreshDelayMs = minRefreshDelayMs;
     this.serverProxyPort = serverProxyPort;
+    this.openSockets = new ConcurrentHashMap<>();
+
+    this.closer =
+        this.executor.schedule(
+            () -> {
+              for (Entry<Socket, Boolean> socketBooleanEntry : openSockets.entrySet()) {
+                Socket key = socketBooleanEntry.getKey();
+                try {
+                  key.close();
+                } catch (IOException e) {
+                  throw new RuntimeException(e);
+                }
+              }
+              openSockets.clear();
+            },
+            5,
+            TimeUnit.SECONDS);
   }
 
   public ConnectorConfig getConfig() {
@@ -120,6 +143,7 @@ class Connector {
       socket.connect(new InetSocketAddress(instanceIp, serverProxyPort));
       socket.startHandshake();
 
+      openSockets.put(socket, true);
       return socket;
     } catch (IOException e) {
       instance.forceRefresh();
@@ -139,5 +163,6 @@ class Connector {
   public void close() {
     this.instances.forEach((key, c) -> c.close());
     this.instances.clear();
+    this.closer.cancel(false);
   }
 }
