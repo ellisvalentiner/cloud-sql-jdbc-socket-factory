@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.1](https://github.com/GoogleCloudPlatform/cloud-sql-jdbc-socket-factory/compare/v1.18.0...v1.18.1) (2024-04-16)
+
+
+### Dependencies
+
+* Update dependency org.graalvm.sdk:nativeimage to v24.0.1 ([#1948](https://github.com/GoogleCloudPlatform/cloud-sql-jdbc-socket-factory/issues/1948)) ([8e3e0e6](https://github.com/GoogleCloudPlatform/cloud-sql-jdbc-socket-factory/commit/8e3e0e6c2a2eddd55be78e8eea0b77237c7f961d))
+
 ## [1.18.0](https://github.com/GoogleCloudPlatform/cloud-sql-jdbc-socket-factory/compare/v1.17.1...v1.18.0) (2024-04-15)
 
 
